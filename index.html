@@ -1,0 +1,183 @@
+
+
+
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+  <style>
+    .letter {
+      width: 40px;
+      height: 40px;
+      //padding: 10px;
+      border: 1px solid #ccc;
+      margin: 5px;
+      display: inline-block;
+      cursor: pointer;
+      text-align: center;
+      line-height: 40px;
+    }
+    .drop-zone {
+      width: 40px;
+      height: 40px;
+      border: 1px dashed #ccc;
+      display: inline-block;
+      margin: 5px;
+      text-align: center;
+      line-height: 40px;
+    }
+    #hint {
+      display: none;
+      margin-top: 10px;
+      font-style: italic;
+      color: #555;
+    }
+    .letter.hidden {
+      visibility: hidden;
+    }
+  </style>
+</head>
+<body>
+  <div class="container mt-5">
+    <h1 class="text-center">Drag and Drop Vocabulary Game</h1>
+    <div class="card mt-4">
+      <div class="card-body text-center">
+        <div id="question-container">
+          <div id="question" class="lead"></div>
+          <button onclick="speak()" class="btn btn-secondary btn-sm">🔊</button>
+          <button onclick="showHint()" class="btn btn-info btn-sm">Hint</button>
+          <div id="hint" class="mt-2"></div>
+        </div>
+        <div id="letters" class="d-flex justify-content-center mt-3"></div>
+        <div id="drop-zones" class="d-flex justify-content-center mt-3"></div>
+        <button onclick="checkAnswer()" class="btn btn-primary mt-3">Check Answer</button>
+      </div>
+    </div>
+    <div id="result" class="alert alert-info mt-4" style="display: none;"></div>
+  </div>
+  <script>
+    const questions = [
+      { clue: 'A tall animal in Africa', answer: 'giraffe' },
+      { clue: 'The king of the jungle', answer: 'lion' },
+      { clue: 'A large animal with a trunk', answer: 'elephant' },
+      { clue: 'A black and white striped horse-like animal', answer: 'zebra' },
+      { clue: 'An animal known for its shell', answer: 'turtle' },
+      { clue: 'A large mammal that lives in the sea', answer: 'whale' },
+      { clue: 'A fast-running bird that cannot fly', answer: 'ostrich' },
+      { clue: 'A small animal that hops and has long ears', answer: 'rabbit' },
+      { clue: 'An animal that changes colors', answer: 'chameleon' },
+      { clue: 'A big cat with spots', answer: 'cheetah' }
+    ];
+    let currentQuestionIndex = 0;
+    let score = 0;
+    let hintsUsed = 0;
+    let hintUsedForCurrentQuestion = false;
+    let draggedElement = null;
+
+    function loadQuestion() {
+      if (currentQuestionIndex >= questions.length) {
+        showResult();
+        return;
+      }
+
+      const { clue, answer } = questions[currentQuestionIndex];
+      document.getElementById('question').textContent = clue;
+      document.getElementById('hint').style.display = 'none';
+      document.getElementById('hint').textContent = answer;
+      const letters = answer.split('').sort(() => Math.random() - 0.5);
+      const lettersContainer = document.getElementById('letters');
+      const dropZonesContainer = document.getElementById('drop-zones');
+      lettersContainer.innerHTML = '';
+      dropZonesContainer.innerHTML = '';
+
+      letters.forEach(letter => {
+        const letterElement = document.createElement('div');
+        letterElement.classList.add('letter');
+        letterElement.textContent = letter;
+        letterElement.setAttribute('draggable', true);
+        letterElement.addEventListener('dragstart', dragStart);
+        letterElement.addEventListener('dragend', dragEnd);
+        lettersContainer.appendChild(letterElement);
+      });
+
+      for (let i = 0; i < answer.length; i++) {
+        const dropZone = document.createElement('div');
+        dropZone.classList.add('drop-zone');
+        dropZone.addEventListener('dragover', dragOver);
+        dropZone.addEventListener('drop', drop);
+        dropZonesContainer.appendChild(dropZone);
+      }
+
+      hintUsedForCurrentQuestion = false; // Reset hint usage for the current question
+    }
+
+    function dragStart(event) {
+      event.dataTransfer.setData('text', event.target.textContent);
+      draggedElement = event.target;
+      setTimeout(() => draggedElement.classList.add('hidden'), 0); // Hide the letter when dragging
+    }
+
+    function dragEnd(event) {
+      if (draggedElement) {
+        draggedElement.classList.remove('hidden'); // Show the letter when dragging ends
+        draggedElement = null;
+      }
+    }
+
+    function dragOver(event) {
+      event.preventDefault();
+    }
+
+    function drop(event) {
+      event.preventDefault();
+      const text = event.dataTransfer.getData('text').toUpperCase(); // แปลงเป็นตัวพิมพ์ใหญ่
+      const target = event.target;
+      if (target.classList.contains('drop-zone') && target.textContent === '') {
+        target.textContent = text;
+        draggedElement.style.visibility = 'hidden'; // ซ่อนอักขระ
+      } else if (draggedElement) {
+        draggedElement.classList.remove('hidden'); // แสดงอักขระหากไม่วางใน drop zone
+      }
+      draggedElement = null;
+    }
+    
+    function checkAnswer() {
+      const { answer } = questions[currentQuestionIndex];
+      const dropZones = document.querySelectorAll('.drop-zone');
+      let userAnswer = '';
+      dropZones.forEach(zone => {
+        userAnswer += zone.textContent.toUpperCase(); // แปลงเป็นตัวพิมพ์ใหญ่
+      });
+      if (userAnswer === answer.toUpperCase() && !hintUsedForCurrentQuestion) { // เปรียบเทียบตัวอักษรใหญ่เท่ากับคำตอบ
+        score++;
+      }
+      currentQuestionIndex++;
+      loadQuestion();
+    }
+
+    function showResult() {
+      const result = document.getElementById('result');
+      result.style.display = 'block';
+      result.textContent = `You scored ${score} out of ${questions.length} without using hints. You used ${hintsUsed} hints.`;
+      document.querySelector('.card').style.display = 'none';
+    }
+
+    function speak() {
+      const utterance = new SpeechSynthesisUtterance(questions[currentQuestionIndex].clue);
+      utterance.lang = 'en-US';
+      speechSynthesis.speak(utterance);
+    }
+
+    function showHint() {
+      document.getElementById('hint').style.display = 'block';
+      if (!hintUsedForCurrentQuestion) {
+        hintsUsed++;
+        hintUsedForCurrentQuestion = true;
+      }
+    }
+
+    loadQuestion(); // Load the first question when the page loads
+  </script>
+</body>
+</html>
